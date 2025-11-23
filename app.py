@@ -50,7 +50,7 @@ def predict_and_log(text, backend, rows_state: List[Dict[str, Any]]):
     return result, f"{latency_ms:.2f} ms", rows_state, rows_state
 
 
-with gr.Blocks as demo:
+with gr.Blocks() as demo:
     rows_state = gr.State([])
 
     gr.Mardown = gr.Markdown( 
