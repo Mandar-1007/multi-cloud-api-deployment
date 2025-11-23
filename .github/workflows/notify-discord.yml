@@ -1,0 +1,41 @@
+name: Notify Discord on workflow completion
+
+on:
+  workflow_run:
+    workflows:
+      - CI - Local Inference Tests
+      - Sync to Hugging Face Space
+    types:
+      - completed
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: always()   
+    steps:
+      - name: Build message
+        id: msg
+        run: |
+          SHORT_SHA="${{ github.event.workflow_run.head_sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          STATUS="${{ github.event.workflow_run.conclusion }}"    # success, failure, cancelled
+          ACTOR="${{ github.event.workflow_run.actor.login }}"
+          REPO="${{ github.repository }}"
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          WORKFLOW_NAME="${{ github.event.workflow.name }}"
+
+          # Choose emoji by status
+          EMOJI="✅"
+          if [ "$STATUS" != "success" ]; then EMOJI="❌"; fi
+
+          echo "content=${EMOJI} ${WORKFLOW_NAME} for ${REPO} *${STATUS}* by ${ACTOR} @ \${SHORT_SHA}\
+          https://github.com/${REPO}/actions/runs/${RUN_ID}" >> $GITHUB_OUTPUT
+
+      - name: Send to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          CONTENT: ${{ steps.msg.outputs.content }}
+        run: |
+          # Ubuntu images have jq preinstalled
+          PAYLOAD=$(jq -n --arg content "$CONTENT" '{content: $content}')
+          curl -sS -H "Content-Type: application/json" -d "$PAYLOAD" "$DISCORD_WEBHOOK_URL"
